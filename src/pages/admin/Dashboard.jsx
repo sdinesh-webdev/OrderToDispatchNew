@@ -17,7 +17,6 @@ import {
   Calendar
 } from "lucide-react";
 import { useToast } from '../../contexts/ToastContext';
-import { seedDummyData } from '../../utils/seedData';
 
 const Dashboard = () => {
   const { showToast } = useToast();
@@ -41,13 +40,8 @@ const Dashboard = () => {
   const loadDashboardData = () => {
     setLoading(true);
     try {
-      // Auto-seed data if no orders exist (moved from Order.jsx for instant dashboard calculations)
-      let orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      if (orders.length === 0) {
-        seedDummyData();
-        orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      }
-      const dispatchHistory = JSON.parse(localStorage.getItem('dispatchHistory') || '[]');
+      let orders = [];
+      const dispatchHistory = [];
 
       const calculatedStats = {
         totalOrders: orders.length,
@@ -235,7 +229,7 @@ const Dashboard = () => {
             />
             <WorkflowStageCard
               stage="2"
-              title="Notify Party"
+              title="Inform to Party Before Dispatch"
               pending={stats.pendingNotification}
               completed={stats.totalOrders - stats.pendingPlanning - stats.pendingNotification}
               icon={Send}
@@ -244,7 +238,7 @@ const Dashboard = () => {
             />
             <WorkflowStageCard
               stage="3"
-              title="Completion"
+              title="Dispatch Completed"
               pending={stats.pendingCompletion}
               completed={stats.fullyCompleted + stats.pendingPostNotify}
               icon={PackageCheck}
@@ -253,7 +247,7 @@ const Dashboard = () => {
             />
             <WorkflowStageCard
               stage="4"
-              title="Post-Notify"
+              title="Inform to Party After Dispatch"
               pending={stats.pendingPostNotify}
               completed={stats.fullyCompleted}
               icon={BellRing}
@@ -344,7 +338,7 @@ const Dashboard = () => {
             </h3>
             <div className="space-y-4">
               {Object.entries(
-                JSON.parse(localStorage.getItem('dispatchHistory') || '[]')
+                dispatchHistory
                   .filter(d => !d.completeStageComplete)
                   .reduce((acc, curr) => {
                     acc[curr.godownName] = (acc[curr.godownName] || 0) + 1;
@@ -364,7 +358,7 @@ const Dashboard = () => {
                   </div>
                 </div>
               ))}
-              {Object.keys(JSON.parse(localStorage.getItem('dispatchHistory') || '[]').filter(d => !d.completeStageComplete)).length === 0 && (
+              {dispatchHistory.filter(d => !d.completeStageComplete).length === 0 && (
                 <div className="py-12 text-center">
                   <PackageCheck className="w-12 h-12 text-gray-100 mx-auto mb-2" />
                   <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">No Active Load</p>

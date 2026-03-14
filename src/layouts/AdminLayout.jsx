@@ -51,10 +51,10 @@ const AdminLayout = () => {
   const navigationItems = [
     { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Order", path: "/admin/order", icon: ClipboardList },
-    { label: "Disp Plan", path: "/admin/dispatch-planning", icon: Truck },
-    { label: "Notify Party", path: "/admin/notify-party", icon: BellRing },
-    { label: "Disp Done", path: "/admin/dispatch-done", icon: CheckCircle },
-    { label: "Post-Disp Notify", path: "/admin/post-dispatch-notify", icon: Mail },
+    { label: "Dispatch Planning", path: "/admin/dispatch-planning", icon: Truck },
+    { label: "Inform to Party Before Dispatch", path: "/admin/notify-party", icon: BellRing },
+    { label: "Dispatch Completed", path: "/admin/dispatch-done", icon: CheckCircle },
+    { label: "Inform to Party After Dispatch", path: "/admin/post-dispatch-notify", icon: Mail },
     { label: "Settings", path: "/admin/settings", icon: SettingsIcon },
   ];
 

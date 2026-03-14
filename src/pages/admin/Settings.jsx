@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Shield, Check, X, Database, Trash2, Pencil } from 'lucide-react';
-import { seedDummyData } from '../../utils/seedData';
+import { UserPlus, Shield, Check, X, Trash2, Pencil } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
 const Settings = () => {
@@ -14,15 +13,14 @@ const Settings = () => {
     const allPages = [
         "Dashboard",
         "Order",
-        "Disp Plan",
-        "Notify Party",
-        "Disp Done",
-        "Post-Disp Notify"
+        "Dispatch Planning",
+        "Inform to Party Before Dispatch",
+        "Dispatch Completed",
+        "Inform to Party After Dispatch"
     ];
 
     useEffect(() => {
-        const savedUsers = JSON.parse(localStorage.getItem('users') || '[]');
-        setUsers(savedUsers);
+        setUsers([]);
     }, []);
 
     const filteredUsers = users.filter(user =>
@@ -36,14 +34,12 @@ const Settings = () => {
         if (editingUser) {
             // Update existing user
             const updatedUsers = users.map(u => u.id === editingUser ? newUser : u);
-            localStorage.setItem('users', JSON.stringify(updatedUsers));
             setUsers(updatedUsers);
             setEditingUser(null);
             showToast("User updated successfully");
         } else {
             // Add new user
             const updatedUsers = [...users, newUser];
-            localStorage.setItem('users', JSON.stringify(updatedUsers));
             setUsers(updatedUsers);
             showToast("User added successfully");
         }
@@ -60,7 +56,6 @@ const Settings = () => {
     const handleDeleteUser = (id) => {
         if (id === 'admin') return;
         const updatedUsers = users.filter(u => u.id !== id);
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
         setUsers(updatedUsers);
         showToast("User removed", "error");
     };
@@ -72,13 +67,6 @@ const Settings = () => {
         } else {
             setNewUser({ ...newUser, pageAccess: [...current, page] });
         }
-    };
-
-    const handleSeedData = () => {
-        const result = seedDummyData();
-        showToast(`Data Seeded! Generated ${result.ordersCount} total orders.`);
-        // Reload to see changes
-        setTimeout(() => window.location.reload(), 1000);
     };
 
     return (
@@ -100,13 +88,6 @@ const Settings = () => {
                     className="w-40 lg:w-56 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-800 focus:border-transparent outline-none text-sm"
                 />
 
-                <button
-                    onClick={handleSeedData}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold text-sm border border-gray-200"
-                >
-                    <Database size={16} />
-                    Seed Data
-                </button>
                 <button
                     onClick={() => setIsModalOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors font-bold text-sm shadow-md"

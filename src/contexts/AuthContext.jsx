@@ -4,29 +4,20 @@ import { useNavigate } from 'react-router-dom';
 const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
-  // Initialize user state from localStorage to persist across page refreshes
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('currentUser');
+    const savedUser = localStorage.getItem('otd_user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const navigate = useNavigate();
 
-  // Sync user state to localStorage whenever it changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('currentUser', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('currentUser');
-    }
-  }, [user]);
-
   const login = async (id, pass) => {
-    const allPages = ["Dashboard", "Order", "Disp Plan", "Notify Party", "Disp Done", "Post-Disp Notify", "Settings"];
+    const allPages = ["Dashboard", "Order", "Dispatch Planning", "Inform to Party Before Dispatch", "Dispatch Completed", "Inform to Party After Dispatch", "Settings"];
 
     // Always check default admin credentials first
     if (id === "admin" && pass === "admin123") {
       const userData = { id: "admin", name: "Administrator", role: "admin", pageAccess: allPages };
       setUser(userData);
+      localStorage.setItem('otd_user', JSON.stringify(userData));
       return true;
     }
 
@@ -34,30 +25,17 @@ export function AuthProvider({ children }) {
     if (id === "user" && pass === "user123") {
       const userData = { id: "user", name: "User", role: "user", pageAccess: allPages };
       setUser(userData);
+      localStorage.setItem('otd_user', JSON.stringify(userData));
       return true;
     }
 
-    // Then check localStorage users
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const matched = users.find(u => u.id === id && u.password === pass);
-
-    if (matched) {
-      const userData = {
-        id: matched.id,
-        name: matched.name,
-        role: matched.role,
-        pageAccess: matched.pageAccess
-      };
-      setUser(userData);
-      return true;
-    }
-
+    // Since we removed persistence, we only support default credentials for now
     return false;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('otd_user');
     navigate("/login");
   };
 

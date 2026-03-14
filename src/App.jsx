@@ -25,10 +25,10 @@ function App() {
     const adminRoutes = [
       { name: "Dashboard", path: "/admin/dashboard" },
       { name: "Order", path: "/admin/order" },
-      { name: "Disp Plan", path: "/admin/dispatch-planning" },
-      { name: "Notify Party", path: "/admin/notify-party" },
-      { name: "Disp Done", path: "/admin/dispatch-done" },
-      { name: "Post-Disp Notify", path: "/admin/post-dispatch-notify" },
+      { name: "Dispatch Planning", path: "/admin/dispatch-planning" },
+      { name: "Inform to Party Before Dispatch", path: "/admin/notify-party" },
+      { name: "Dispatch Completed", path: "/admin/dispatch-done" },
+      { name: "Inform to Party After Dispatch", path: "/admin/post-dispatch-notify" },
       { name: "Settings", path: "/admin/settings" },
     ];
 
@@ -80,25 +80,25 @@ function App() {
         } />
 
         <Route path="dispatch-planning" element={
-          <ProtectedRoute pageName="Disp Plan">
+          <ProtectedRoute pageName="Dispatch Planning">
             <DispatchPlanning />
           </ProtectedRoute>
         } />
 
         <Route path="notify-party" element={
-          <ProtectedRoute pageName="Notify Party">
+          <ProtectedRoute pageName="Inform to Party Before Dispatch">
             <InformToParty />
           </ProtectedRoute>
         } />
 
         <Route path="dispatch-done" element={
-          <ProtectedRoute pageName="Disp Done">
+          <ProtectedRoute pageName="Dispatch Completed">
             <DispatchComplete />
           </ProtectedRoute>
         } />
 
         <Route path="post-dispatch-notify" element={
-          <ProtectedRoute pageName="Post-Disp Notify">
+          <ProtectedRoute pageName="Inform to Party After Dispatch">
             <AfterDispatchInformToParty />
           </ProtectedRoute>
         } />

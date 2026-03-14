@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BellRing, History, Save } from 'lucide-react';
+import { BellRing, History, Save, X } from 'lucide-react';
 import SearchableDropdown from '../../components/SearchableDropdown';
+
+const ORDER_URL = import.meta.env.VITE_SHEET_orderToDispatch_URL;
 
 const InformToParty = () => {
     const [pendingItems, setPendingItems] = useState([]);
@@ -10,11 +12,77 @@ const InformToParty = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [clientFilter, setClientFilter] = useState('');
     const [godownFilter, setGodownFilter] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const formatDisplayDate = (dateStr) => {
+        if (!dateStr || dateStr === '-') return '-';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            return date.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            }).replace(/ /g, '-');
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            // Parallel fetch for both sheets
+            const [planningRes, beforeDispatchRes] = await Promise.all([
+                fetch(`${ORDER_URL}?sheet=Planning&mode=table`),
+                fetch(`${ORDER_URL}?sheet=Before Dispatch&mode=table`)
+            ]);
+
+            const [planningResult, beforeDispatchResult] = await Promise.all([
+                planningRes.json(),
+                beforeDispatchRes.json()
+            ]);
+            
+            if (planningResult.success && planningResult.data) {
+                const pendingData = planningResult.data.map((item, index) => ({
+                    id: `P${index}`,
+                    orderNo: item.orderNo || item.orderNumber || '-',
+                    dispatchNo: item.dispatchNo || '-',
+                    clientName: item.clientName || '-',
+                    godownName: item.godownName || '-',
+                    itemName: item.itemName || '-',
+                    qty: item.qty || '-',
+                    dispatchQty: item.dispatchQty || '-',
+                    dispatchDate: item.dispatchDate || '-',
+                }));
+                setPendingItems(pendingData);
+            }
+
+            if (beforeDispatchResult.success && beforeDispatchResult.data) {
+                const historyData = beforeDispatchResult.data.map((item, index) => ({
+                    id: `H${index}`,
+                    orderNo: item.orderNo || '-',
+                    dispatchNo: item.dispatchNo || '-',
+                    confirmed: String(item.confirmed || 'YES').trim().toUpperCase(),
+                    clientName: item.clientName || '-',
+                    godownName: item.godownName || '-',
+                    itemName: item.itemName || '-',
+                    qty: item.qty || '-',
+                    dispatchQty: item.dispatchQty || '-',
+                    dispatchDate: item.timestamp || '-'
+                }));
+                setHistoryItems(historyData);
+            }
+
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const history = JSON.parse(localStorage.getItem('dispatchHistory') || '[]');
-        setPendingItems(history.filter(h => !h.notified));
-        setHistoryItems(history.filter(h => h.notified));
+        fetchData();
     }, []);
 
     const allUniqueClients = [...new Set([...pendingItems.map(o => o.clientName), ...historyItems.map(h => h.clientName)])].sort();
@@ -38,89 +106,170 @@ const InformToParty = () => {
         return matchesSearch && matchesClient && matchesGodown;
     });
 
-    const handleCheckboxToggle = (idx) => {
-        setSelectedRows({ ...selectedRows, [idx]: !selectedRows[idx] });
+    const handleCheckboxToggle = (dn) => {
+        const newSelected = { ...selectedRows };
+        if (newSelected[dn]) {
+            delete newSelected[dn];
+        } else {
+            newSelected[dn] = 'yes'; // Default to 'yes' when checked
+        }
+        setSelectedRows(newSelected);
     };
 
-    const handleSave = () => {
-        const history = JSON.parse(localStorage.getItem('dispatchHistory') || '[]');
+    const handleStatusChange = (dn, status) => {
+        setSelectedRows(prev => ({
+            ...prev,
+            [dn]: status
+        }));
+    };
 
-        Object.keys(selectedRows).forEach(idx => {
-            if (selectedRows[idx]) {
-                const item = pendingItems[idx];
-                const realIdx = history.findIndex(h => h.dispatchNo === item.dispatchNo && h.serialNo === item.serialNo);
-                if (realIdx > -1) {
-                    history[realIdx].notified = true;
-                    history[realIdx].completeStage = false; // Next stage
-                }
-            }
+    const handleSave = async () => {
+        const rowsToSubmit = [];
+        const selectedDNs = Object.keys(selectedRows);
+        
+        if (selectedDNs.length === 0) return;
+
+        setIsLoading(true);
+        const now = new Date().toISOString();
+
+        selectedDNs.forEach(dn => {
+            const item = pendingItems.find(i => i.dispatchNo === dn);
+            if (!item) return;
+
+            rowsToSubmit.push({
+                timestamp: now,
+                columnB: item.dispatchNo,       // B: Dispatch No
+                columnC: selectedRows[dn] === 'yes' ? 'YES' : 'NO', // C: YES/NO
+                columnD: item.clientName,      // D: Client
+                columnE: item.godownName,      // E: Godown
+                columnF: item.itemName,        // F: Item
+                columnG: item.qty,             // G: Order Qty
+                columnH: item.dispatchQty,      // H: Dispatch Qty
+                dispatchNo: item.dispatchNo    // For backend lookup
+            });
         });
 
-        localStorage.setItem('dispatchHistory', JSON.stringify(history));
-        setPendingItems(history.filter(h => !h.notified));
-        setHistoryItems(history.filter(h => h.notified));
-        setSelectedRows({});
+        try {
+            const SHEET_ID = import.meta.env.VITE_orderToDispatch_SHEET_ID;
+            
+            await fetch(ORDER_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sheetId: SHEET_ID,
+                    sheet: "Before Dispatch",
+                    rows: rowsToSubmit
+                })
+            });
+
+            alert('Confirmation saved to "Before Dispatch" sheet successfully!');
+            
+            // Refresh data to show updated 'Planning' status (which should hide these rows)
+            await fetchData();
+            setSelectedRows({});
+        } catch (error) {
+            console.error('Submission failed:', error);
+            alert('Failed to submit confirmation. Please check console.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
         <div className="p-3 sm:p-6 lg:p-8">
             {/* Header Row with Title, Tabs, Filters, and Actions */}
-            <div className="flex flex-wrap items-center gap-3 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <h1 className="text-xl font-bold text-gray-800">Notify Party</h1>
+            <div className="flex flex-col gap-4 mb-6 bg-white p-4 lg:p-5 rounded-xl shadow-sm border border-gray-100">
+                {/* Top Section: Title & Tabs & Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <h1 className="text-xl font-bold text-gray-800 tracking-tight whitespace-nowrap">Inform to Party</h1>
 
-                <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setActiveTab('pending')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'pending' ? 'bg-white text-blue-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <BellRing size={16} />
-                        Pending
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white text-blue-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <History size={16} />
-                        History
-                    </button>
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button
+                                onClick={() => setActiveTab('pending')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'pending' ? 'bg-white text-blue-800 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                            >
+                                <BellRing size={16} />
+                                Pending
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('history')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white text-blue-800 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                            >
+                                <History size={16} />
+                                History
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        {(searchTerm || clientFilter || godownFilter) && (
+                            <button
+                                onClick={() => { setSearchTerm(''); setClientFilter(''); setGodownFilter(''); }}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-xs font-bold border border-blue-100"
+                            >
+                                <X size={14} />
+                                Clear Filters
+                            </button>
+                        )}
+                        
+                        {activeTab === 'pending' && Object.values(selectedRows).some(v => v) && (
+                            <button
+                                onClick={handleSave}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 shadow-md font-bold text-sm ml-auto sm:ml-0"
+                            >
+                                <Save size={16} />
+                                Confirm Notification
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex-1" />
-
-                <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-32 lg:w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent outline-none text-sm"
-                />
-                <SearchableDropdown
-                    value={clientFilter}
-                    onChange={setClientFilter}
-                    options={allUniqueClients}
-                    allLabel="All Clients"
-                    className="w-32 lg:w-40"
-                    focusColor="blue-800"
-                />
-                <SearchableDropdown
-                    value={godownFilter}
-                    onChange={setGodownFilter}
-                    options={allUniqueGodowns}
-                    allLabel="All Godowns"
-                    className="w-32 lg:w-40"
-                    focusColor="blue-800"
-                />
-
-                {activeTab === 'pending' && Object.values(selectedRows).some(v => v) && (
-                    <button
-                        onClick={handleSave}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 shadow-md font-bold text-sm"
-                    >
-                        <Save size={16} />
-                        Confirm Notification
-                    </button>
-                )}
+                {/* Bottom Section: Grid Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    <input
+                        type="text"
+                        placeholder="Search records..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent outline-none text-sm transition-all"
+                    />
+                    <SearchableDropdown
+                        value={clientFilter}
+                        onChange={setClientFilter}
+                        options={allUniqueClients}
+                        allLabel="All Clients"
+                        className="w-full"
+                        focusColor="blue-800"
+                    />
+                    <SearchableDropdown
+                        value={godownFilter}
+                        onChange={setGodownFilter}
+                        options={allUniqueGodowns}
+                        allLabel="All Godowns"
+                        className="w-full"
+                        focusColor="blue-800"
+                    />
+                </div>
             </div>
+
+            {isLoading && (
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-gray-100">
+                        <div className="relative">
+                            <div className="h-16 w-16 rounded-full border-4 border-gray-100 border-t-blue-800 animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="h-8 w-8 rounded-full border-4 border-gray-100 border-b-blue-800 animate-spin-slow"></div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <p className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Loading</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Retrieving Records</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 {/* Desktop Table */}
@@ -129,49 +278,55 @@ const InformToParty = () => {
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-600 font-bold sticky top-0 z-10 shadow-sm">
                                 {activeTab === 'pending' && <th className="px-4 py-3">Action</th>}
-                                <th className="px-4 py-3">Serial Number</th>
-                                <th className="px-4 py-3">Order No</th>
+                                {activeTab === 'pending' && <th className="px-4 py-3">Order No</th>}
                                 <th className="px-4 py-3 text-blue-700">Dispatch Number</th>
                                 <th className="px-4 py-3">Dispatch Qty</th>
                                 <th className="px-4 py-3">Dispatch Date</th>
-                                <th className="px-4 py-3">GST Included</th>
                                 <th className="px-4 py-3">Client Name</th>
                                 <th className="px-4 py-3">Godown Name</th>
-                                <th className="px-4 py-3">Order Date</th>
                                 <th className="px-4 py-3">Item Name</th>
-                                <th className="px-4 py-3">Rate</th>
                                 <th className="px-4 py-3">Qty</th>
                                 {activeTab === 'history' && <th className="px-4 py-3">Status</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-sm">
                             {[...(activeTab === 'pending' ? filteredPending : filteredHistory)].reverse().map((item, idx) => (
-                                <tr key={idx} className={`${selectedRows[idx] ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
+                                <tr key={item.id} className={`${selectedRows[item.dispatchNo] ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
                                     {activeTab === 'pending' && (
                                         <td className="px-4 py-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={!!selectedRows[idx]}
-                                                onChange={() => handleCheckboxToggle(idx)}
-                                                className="rounded text-blue-800 focus:ring-blue-800"
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!selectedRows[item.dispatchNo]}
+                                                    onChange={() => handleCheckboxToggle(item.dispatchNo)}
+                                                    className="rounded text-blue-800 focus:ring-blue-800 cursor-pointer"
+                                                />
+                                                {selectedRows[item.dispatchNo] && (
+                                                    <select
+                                                        value={selectedRows[item.dispatchNo]}
+                                                        onChange={(e) => handleStatusChange(item.dispatchNo, e.target.value)}
+                                                        className="text-[10px] font-bold border border-blue-200 rounded px-1 py-0.5 bg-blue-50 text-blue-800 outline-none focus:ring-1 focus:ring-blue-500 animate-in fade-in zoom-in duration-200"
+                                                    >
+                                                        <option value="yes">YES</option>
+                                                        <option value="no">NO</option>
+                                                    </select>
+                                                )}
+                                            </div>
                                         </td>
                                     )}
-                                    <td className="px-4 py-3 font-medium">{item.serialNo}</td>
-                                    <td className="px-4 py-3">{item.orderNo}</td>
+                                    {activeTab === 'pending' && <td className="px-4 py-3">{item.orderNo}</td>}
                                     <td className="px-4 py-3 font-bold text-blue-700">{item.dispatchNo}</td>
-                                    <td className="px-4 py-3">{item.dispatchQty}</td>
-                                    <td className="px-4 py-3">{item.dispatchDate}</td>
-                                    <td className="px-4 py-3">{item.gstIncluded}</td>
+                                    <td className="px-4 py-3 font-medium text-gray-700">{item.dispatchQty}</td>
+                                    <td className="px-4 py-3 font-bold text-blue-700">{formatDisplayDate(item.dispatchDate)}</td>
                                     <td className="px-4 py-3">{item.clientName}</td>
                                     <td className="px-4 py-3">{item.godownName}</td>
-                                    <td className="px-4 py-3">{item.orderDate}</td>
                                     <td className="px-4 py-3">{item.itemName}</td>
-                                    <td className="px-4 py-3">{item.rate}</td>
                                     <td className="px-4 py-3">{item.qty}</td>
                                     {activeTab === 'history' && (
                                         <td className="px-4 py-3">
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">YES</span>
+                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${item.confirmed === 'YES' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                {item.confirmed || 'YES'}
+                                            </span>
                                         </td>
                                     )}
                                 </tr>
@@ -190,25 +345,39 @@ const InformToParty = () => {
                 {/* Mobile Card View */}
                 <div className="md:hidden divide-y divide-gray-200">
                     {[...(activeTab === 'pending' ? filteredPending : filteredHistory)].reverse().map((item, idx) => (
-                        <div key={idx} className={`p-4 space-y-3 ${selectedRows[idx] ? 'bg-blue-50/30' : 'bg-white'}`}>
+                        <div key={item.id} className={`p-4 space-y-3 ${selectedRows[item.dispatchNo] ? 'bg-blue-50/30' : 'bg-white'}`}>
                             <div className="flex justify-between items-start">
                                 <div className="flex gap-3 items-start">
                                     {activeTab === 'pending' && (
-                                        <input
-                                            type="checkbox"
-                                            checked={!!selectedRows[idx]}
-                                            onChange={() => handleCheckboxToggle(idx)}
-                                            className="mt-1 rounded text-blue-800 focus:ring-blue-800 w-5 h-5"
-                                        />
+                                        <div className="flex flex-col gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!selectedRows[item.dispatchNo]}
+                                                onChange={() => handleCheckboxToggle(item.dispatchNo)}
+                                                className="mt-1 rounded text-blue-800 focus:ring-blue-800 w-5 h-5 cursor-pointer"
+                                            />
+                                            {selectedRows[item.dispatchNo] && (
+                                                <select
+                                                    value={selectedRows[item.dispatchNo]}
+                                                    onChange={(e) => handleStatusChange(item.dispatchNo, e.target.value)}
+                                                    className="text-[10px] font-bold border border-blue-200 rounded px-1.5 py-1 bg-blue-50 text-blue-800 outline-none animate-in fade-in slide-in-from-left-2 duration-200"
+                                                >
+                                                    <option value="yes">YES</option>
+                                                    <option value="no">NO</option>
+                                                </select>
+                                            )}
+                                        </div>
                                     )}
                                     <div>
                                         <p className="text-[10px] font-bold text-blue-700 uppercase leading-none mb-1">{item.dispatchNo}</p>
                                         <h4 className="text-sm font-bold text-gray-900 leading-tight">{item.clientName}</h4>
-                                        <p className="text-[10px] mt-1 text-gray-500">SN: {item.serialNo} | {item.itemName}</p>
+                                        <p className="text-[10px] mt-1 text-gray-500">{item.itemName}</p>
                                     </div>
                                 </div>
                                 {activeTab === 'history' && (
-                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">NOTIFIED: YES</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${item.confirmed === 'YES' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {item.confirmed || 'YES'}
+                                    </span>
                                 )}
                             </div>
                             <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[11px] text-gray-600 pt-1">
@@ -218,12 +387,14 @@ const InformToParty = () => {
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-gray-400 text-[9px] uppercase font-bold">Disp Date</span>
-                                    <span className="font-medium">{item.dispatchDate}</span>
+                                    <span className="font-bold text-blue-800">{formatDisplayDate(item.dispatchDate)}</span>
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className="text-gray-400 text-[9px] uppercase font-bold">Order No</span>
-                                    <span className="font-medium">{item.orderNo}</span>
-                                </div>
+                                {activeTab === 'pending' && (
+                                    <div className="flex flex-col">
+                                        <span className="text-gray-400 text-[9px] uppercase font-bold">Order No</span>
+                                        <span className="font-medium">{item.orderNo}</span>
+                                    </div>
+                                )}
                                 <div className="flex flex-col">
                                     <span className="text-gray-400 text-[9px] uppercase font-bold">Godown</span>
                                     <span className="font-medium truncate">{item.godownName}</span>
@@ -237,6 +408,15 @@ const InformToParty = () => {
                 </div>
             </div>
 
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes spin-slow {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(-360deg); }
+              }
+              .animate-spin-slow {
+                animation: spin-slow 3s linear infinite;
+              }
+            `}} />
         </div>
     );
 };

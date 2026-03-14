@@ -12,9 +12,8 @@ const AfterDispatchInformToParty = () => {
     const [godownFilter, setGodownFilter] = useState('');
 
     useEffect(() => {
-        const history = JSON.parse(localStorage.getItem('dispatchHistory') || '[]');
-        setPendingItems(history.filter(h => h.completeStageComplete && !h.postNotified));
-        setHistoryItems(history.filter(h => h.postNotified));
+        setPendingItems([]);
+        setHistoryItems([]);
     }, []);
 
     const allUniqueClients = [...new Set([...pendingItems.map(o => o.clientName), ...historyItems.map(h => h.clientName)])].sort();
@@ -43,21 +42,18 @@ const AfterDispatchInformToParty = () => {
     };
 
     const handleSave = () => {
-        const history = JSON.parse(localStorage.getItem('dispatchHistory') || '[]');
+        const newlyNotified = [];
 
         Object.keys(selectedRows).forEach(idx => {
             if (selectedRows[idx]) {
-                const item = pendingItems[idx];
-                const realIdx = history.findIndex(h => h.dispatchNo === item.dispatchNo && h.serialNo === item.serialNo);
-                if (realIdx > -1) {
-                    history[realIdx].postNotified = true;
-                }
+                const item = { ...pendingItems[idx], postNotified: true };
+                newlyNotified.push(item);
             }
         });
 
-        localStorage.setItem('dispatchHistory', JSON.stringify(history));
-        setPendingItems(history.filter(h => h.completeStageComplete && !h.postNotified));
-        setHistoryItems(history.filter(h => h.postNotified));
+        const remainingPending = pendingItems.filter((_, idx) => !selectedRows[idx]);
+        setPendingItems(remainingPending);
+        setHistoryItems([...historyItems, ...newlyNotified]);
         setSelectedRows({});
     };
 
@@ -65,7 +61,7 @@ const AfterDispatchInformToParty = () => {
         <div className="p-3 sm:p-6 lg:p-8">
             {/* Header Row with Title, Tabs, Filters, and Actions */}
             <div className="flex flex-wrap items-center gap-3 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <h1 className="text-xl font-bold text-gray-800">Post-Disp Notify</h1>
+                <h1 className="text-xl font-bold text-gray-800">Inform to Party After Dispatch</h1>
 
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                     <button
