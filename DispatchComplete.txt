@@ -148,8 +148,7 @@ const DispatchComplete = () => {
                                 crmName: item[8] || '-',
                                 columnO: item[14] || '',
                                 columnP: item[15] || '',
-                                sheetRow: item[9] || (idx + (hasHeaders ? 2 : 1)), // Adjusted for no slice(3)
-                                status: getVal(item, 'status', 'Status', 17) || '', // Map status for filter
+                                sheetRow: item[9] || (idx + (hasHeaders ? 2 : 1)),
                                 originalIndex: idx
                             };
                         } else {
@@ -175,11 +174,9 @@ const DispatchComplete = () => {
                         }
                     })
                     .filter(item => {
-                        // Hide if both Column O and Column P are not null
-                        const colOValue = String(getVal(item, 'columnO', 14) || '').trim();
-                        const colPValue = String(getVal(item, 'columnP', 15) || '').trim();
-                        const bothNotNull = colOValue !== '' && colOValue !== '-' && colPValue !== '' && colPValue !== '-';
-                        return !bothNotNull;
+                        const pendingQty = parseFloat(String(getVal(item, 'planningPendingQty', 11) || '0').replace(/[^0-9.-]+/g, ''));
+                        // Only show planned items with positive pending quantity
+                        return !isNaN(pendingQty) && pendingQty > 0;
                     });
             }
             setOrders(newOrders);
@@ -652,7 +649,7 @@ const DispatchComplete = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-sm">
-                            {(activeTab === 'pending' ? [...filteredAndSortedPending].reverse() : [...filteredAndSortedHistory].reverse()).map((item) => {
+                            {(activeTab === 'pending' ? filteredAndSortedPending : filteredAndSortedHistory).map((item) => {
                                 const realIdx = item.originalIndex;
                                 const isSelected = activeTab === 'pending' && !!selectedRows[realIdx];
                                 return (
@@ -744,8 +741,8 @@ const DispatchComplete = () => {
                                                             value={editData[realIdx]?.status || 'Completed'}
                                                             onChange={(e) => handleEditChange(realIdx, 'status', e.target.value)}
                                                             className={`w-full pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-xs font-semibold appearance-none bg-white transition-all shadow-sm ${isSelected
-                                                                ? 'cursor-pointer hover:border-green-300 focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none'
-                                                                : 'bg-gray-50 opacity-70 cursor-not-allowed'
+                                                                    ? 'cursor-pointer hover:border-green-300 focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none'
+                                                                    : 'bg-gray-50 opacity-70 cursor-not-allowed'
                                                                 }`}
                                                         >
                                                             <option value="Completed">Completed</option>
