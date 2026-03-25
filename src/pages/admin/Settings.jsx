@@ -338,7 +338,7 @@ const Settings = () => {
                 ))}
             </div>
 
-            {/* Loading overlay — first load or saving (background syncs are silent) */}
+            {/* Loading overlay - first load or saving (background syncs are silent) */}
             {(loading || isSaving) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/40 backdrop-blur-md transition-all duration-300">
                     <div className="bg-white/80 p-10 rounded-3xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] flex flex-col items-center gap-6 border border-white/50 relative overflow-hidden group">

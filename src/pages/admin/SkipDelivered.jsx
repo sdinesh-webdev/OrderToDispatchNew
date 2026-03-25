@@ -422,7 +422,7 @@ const SkipDelivered = () => {
                 )}
             </div>
 
-            {/* Loading overlay — first load only (background syncs are silent) */}
+            {/* Loading overlay - first load only (background syncs are silent) */}
             {(loading || isSaving) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/40 backdrop-blur-md transition-all duration-300">
                     <div className="bg-white/80 p-10 rounded-3xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] flex flex-col items-center gap-6 border border-white/50 relative overflow-hidden group">
@@ -535,7 +535,7 @@ const SkipDelivered = () => {
                                                             placeholder="Qty"
                                                         />
                                                     ) : (
-                                                        <span className="text-gray-400">—</span>
+                                                        <span className="text-gray-400">-</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
@@ -547,7 +547,7 @@ const SkipDelivered = () => {
                                                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-primary focus:border-primary outline-none"
                                                         />
                                                     ) : (
-                                                        <span className="text-gray-400">—</span>
+                                                        <span className="text-gray-400">-</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
@@ -564,7 +564,7 @@ const SkipDelivered = () => {
                                                             <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                                                         </div>
                                                     ) : (
-                                                        <span className="text-gray-400">—</span>
+                                                        <span className="text-gray-400">-</span>
                                                     )}
                                                 </td>
                                             </>

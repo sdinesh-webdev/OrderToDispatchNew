@@ -360,7 +360,7 @@ const Order = () => {
         </div>
       </div>
 
-      {/* Loading overlay — first load only (background syncs are silent) */}
+      {/* Loading overlay - first load only (background syncs are silent) */}
       {isLoadingOrders && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/40 backdrop-blur-md transition-all duration-300">
           <div className="bg-white/80 p-10 rounded-3xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] flex flex-col items-center gap-6 border border-white/50 relative overflow-hidden group">
@@ -376,13 +376,8 @@ const Order = () => {
               </div>
             </div>
             <div className="flex flex-col items-center text-center">
-              <h3 className="text-lg font-black text-gray-800 uppercase tracking-[0.3em] mb-1 drop-shadow-sm flex items-center">
-                Loading
-                <span className="inline-flex ml-1">
-                  <span className="animate-bounce" style={{ animationDelay: '0s' }}>.</span>
-                  <span className="animate-bounce [animation-delay:0.2s] ml-0.5">.</span>
-                  <span className="animate-bounce [animation-delay:0.4s] ml-0.5">.</span>
-                </span>
+              <h3 className="text-lg font-black text-gray-800 uppercase tracking-widest mb-1 drop-shadow-sm flex items-center">
+                Loading...
               </h3>
               <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider bg-gray-50 px-3 py-1 rounded-full border border-gray-100 shadow-inner">
                 Loading Orders...
@@ -696,34 +691,6 @@ const Order = () => {
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e5e7eb;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #d1d5db;
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(-360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
-        }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(15px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        
-        .stroke-\\[3\\] {
-          stroke-width: 3px;
         }
       `}</style>
     </div>
